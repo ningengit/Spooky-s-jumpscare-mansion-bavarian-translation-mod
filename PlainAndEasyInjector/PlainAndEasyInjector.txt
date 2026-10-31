@@ -1,0 +1,26 @@
+PlainAndEasyInjector
+
+
+tell me potential Errors and limitations Right now with the current code.
+
+
+the actual game is in here by the way "C:\Program Files (x86)\Steam\steamapps\common\Spooky's Jump Scare Mansion HD Renovation\SpookyUnity_Data\Managed"
+
+My next goal with this patcher is to also make it compatible with il2cpp make it close platform and open source so publishing it on GitHub and that good stuff
+
+make it a standalone api Thing that i can upload to GitHub
+
+could we shrink the installers down to 30mb from 75mb with trimming if possible?
+
+make it like bepinex where you can toggle showing unity log messages in the logging system i'll give you the config file so you can see what features would be great for modding and debugging Maybe for Android you could make an overlay over the original game.
+
+///////////
+as said before the SJSMHDBavarianPatcher should first patch the assetbundles and PlainAndEasyInjector modifies the code and moves the original dlls somewhere else and puts the modified ones in place i am saying this again to be as clear as day.
+
+BavarianTranslationsFromJSON should read the translations json that isn't embedded but in the install directory and people can modify it and stuff to make the mod better
+
+make it cross platform it has to work on macOS, Linux, Windows and Android Maybe compile it to a custom apk with a ui and stuff where people can locate their obb or whatever it is on Android and patch their game that way i will make a dummy Unity project and test this i want this to work because i will probably use this for future projects and also the architecture it has to have to ability to compile to aarch64, x86, x64 etc etc make it as compatible as possible.
+
+nameof has to work on EVERYTHING because strings are bad they are error prone where as nameof() isn't, i think this functionality is already there if it isn't completely there please tell me!
+
+also tell me how that publicizer works and what i need to do

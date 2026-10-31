@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="PlainAndEasyInjector/PlainAndEasyInjector.csproj" />
+  <Project Path="SJSMHDBavarianPatcher/SJSMHDBavarianPatcher.csproj" />
+</Solution>

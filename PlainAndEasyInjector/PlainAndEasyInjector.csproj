@@ -1,0 +1,67 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!--
+      This project is built twice:
+        net10.0         the patcher you run (F5 in Visual Studio, or: dotnet run -f net10.0).
+        netstandard2.1  the "in-game" copy of the same code. Your hooks run INSIDE the game, and Unity (Mono) can't
+                        load a net10.0 assembly, so Save()/Install() ship this copy next to the patched DLL instead. It is
+                        copied into the "ingame" folder next to the patcher after every build (see the target below).
+    -->
+    <TargetFrameworks>net10.0;netstandard2.1</TargetFrameworks>
+    <OutputType Condition="'$(TargetFramework)' == 'net10.0'">Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <!-- the in-game copy needs the NuGet packages your hooks use next to it, so Save() can ship them too -->
+    <CopyLocalLockFileAssemblies Condition="'$(TargetFramework)' == 'netstandard2.1'">true</CopyLocalLockFileAssemblies>
+    <!-- the game's DLL folder; override with: dotnet build -p:GameManagedDir="..." -->
+    <GameManagedDir Condition="'$(GameManagedDir)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Spooky's Jump Scare Mansion HD Renovation\SpookyUnity_Data\Managed</GameManagedDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Mono.Cecil" Version="0.11.6" />
+    <!-- Makes the game's private/protected members visible to YOUR code at compile time, so nameof(SavePickerSave.Start),
+         instance.useAgg etc. work even when they're private. Only the compiler sees them as public; Save()/Install() make
+         the members your hooks use public in the patched game DLL, so it works in the game too. -->
+    <PackageReference Include="Krafs.Publicizer" Version="2.3.0" PrivateAssets="all" />
+    <Publicize Include="Assembly-CSharp;Rewired_Core" />
+  </ItemGroup>
+
+  <!-- The game's DLLs, straight from the game folder. Private="false": they aren't copied next to the patcher (and never into
+       anything you publish); GameAssemblies.LoadFrom() loads them from the game folder while patching. -->
+  <ItemGroup>
+    <GameDll Include="$(GameManagedDir)\*.dll"
+             Exclude="$(GameManagedDir)\System*.dll;$(GameManagedDir)\mscorlib.dll;$(GameManagedDir)\netstandard.dll;$(GameManagedDir)\Mono.*.dll;$(GameManagedDir)\Microsoft.*.dll;$(GameManagedDir)\PlainAndEasyInjector*.dll" />
+    <Reference Include="@(GameDll)" Private="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Properties\Resources.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Update="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <!-- The translations are a normal file next to the program, so anyone can edit them (Install() copies them into the game). -->
+  <ItemGroup>
+    <None Update="Properties\BavarianTranslations.json" Link="BavarianTranslations.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- After building the patcher, build the in-game copy and put it into the "ingame" folder next to it. -->
+  <Target Name="CopyInGameBuild" AfterTargets="Build" Condition="'$(TargetFramework)' == 'net10.0'">
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Build" Properties="TargetFramework=netstandard2.1">
+      <Output TaskParameter="TargetOutputs" ItemName="_InGameAssembly" />
+    </MSBuild>
+    <ItemGroup>
+      <_InGameFiles Include="%(_InGameAssembly.RootDir)%(_InGameAssembly.Directory)*.dll;%(_InGameAssembly.RootDir)%(_InGameAssembly.Directory)*.pdb" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_InGameFiles)" DestinationFolder="$(OutDir)ingame" SkipUnchangedFiles="true" />
+  </Target>
+</Project>

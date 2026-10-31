@@ -1,0 +1,112 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net10.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<RootNamespace>SJSMHDBavarianPatcher</RootNamespace>
+		<AssemblyName>SJSMHDBavarianPatcher</AssemblyName>
+		<!-- no ICU / culture data needed: smaller, and nothing extra has to be installed on Linux -->
+		<InvariantGlobalization>true</InvariantGlobalization>
+	</PropertyGroup>
+
+	<!--
+	to compile the game do .\publish.bat in windows powershell
+    Release settings. They only apply when a RuntimeIdentifier is given (dotnet publish -r win-x64 / linux-x64),
+    because "self-contained" cannot be built without one. This keeps F5 / dotnet build in Visual Studio working.
+  -->
+	<PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+		<SelfContained>true</SelfContained>
+		<PublishSingleFile>true</PublishSingleFile>
+		<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+
+		<!-- 1. Compress the bundled .NET runtime inside the executable -->
+		<EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+
+		<!-- 2. NO trimming: while patching, the game's own DLLs are loaded, and they need parts of .NET that this program
+		     doesn't use itself. Trimming removed those, and the code patching failed with a TypeLoadException. -->
+		<PublishTrimmed>false</PublishTrimmed>
+
+		<!-- 3. Strip debug symbols and metadata from the single file -->
+		<DebugType>none</DebugType>
+		<DebugSymbols>false</DebugSymbols>
+		<DebuggerSupport>false</DebuggerSupport>
+		<EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
+		<EventSourceSupport>false</EventSourceSupport>
+		<HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
+		<!-- keep the real error messages (with true, errors show up without any text) -->
+		<UseSystemResourceKeys>false</UseSystemResourceKeys>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<AssetsToolsVersion>3.0.5</AssetsToolsVersion>
+		<AssetsToolsMonoCecilVersion>3.0.4</AssetsToolsMonoCecilVersion>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="AssetsTools.NET" Version="$(AssetsToolsVersion)" />
+		<PackageReference Include="AssetsTools.NET.MonoCecil" Version="$(AssetsToolsMonoCecilVersion)" />
+		<PackageReference Include="Fmod5Sharp" Version="3.0.1" />
+		<PackageReference Include="NVorbis" Version="0.10.5" />
+		<PackageReference Include="StbImageSharp" Version="2.27.14" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- Embed classdata.tpk, Audio, and Textures directly inside the executable as resources -->
+		<EmbeddedResource Include="classdata.tpk" Condition="Exists('classdata.tpk')" />
+		<EmbeddedResource Include="Audio\**\*" />
+		<EmbeddedResource Include="Textures\**\*" />
+
+		<!-- BepInEx is still copied separately because it needs to reside in the game folder -->
+		<None Include="BepInEx\**\*.*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="Exists('BepInEx')" />
+	</ItemGroup>
+
+	<!-- Step 2 (the game's code) is done by PlainAndEasyInjector: BavarianMod.Install() -->
+	<ItemGroup>
+		<ProjectReference Include="..\PlainAndEasyInjector\PlainAndEasyInjector.csproj" />
+	</ItemGroup>
+	<PropertyGroup>
+		<!-- PlainAndEasyInjector is a program of its own too; we only use it as a library, so that's fine -->
+		<ValidateExecutableReferencesMatchSelfContained>false</ValidateExecutableReferencesMatchSelfContained>
+	</PropertyGroup>
+
+	<!-- PlainAndEasyInjector's in-game copy (its "ingame" folder) goes INTO this program, which extracts it next to itself at
+	     startup: that's the DLL that gets installed into the game. Mono.Cecil is only needed for patching, not in the game. -->
+	<Target Name="EmbedInGameBuild" AfterTargets="ResolveProjectReferences">
+		<PropertyGroup>
+			<_InGameDir>@(_ResolvedProjectReferencePaths->WithMetadataValue('Filename','PlainAndEasyInjector')->'%(RootDir)%(Directory)ingame\')</_InGameDir>
+		</PropertyGroup>
+		<ItemGroup>
+			<_InGameFile Include="$(_InGameDir)*.dll;$(_InGameDir)*.pdb" Exclude="$(_InGameDir)Mono.Cecil*" />
+			<EmbeddedResource Include="@(_InGameFile)" LogicalName="ingame/%(_InGameFile.Filename)%(_InGameFile.Extension)" />
+		</ItemGroup>
+		<Error Condition="'@(_InGameFile)' == ''" Text="PlainAndEasyInjector's ingame folder is empty ($(_InGameDir)). Build PlainAndEasyInjector first." />
+	</Target>
+
+	<!-- The translations: a normal file next to the program (NOT inside the .exe), so anyone can edit and improve them.
+	     The installer copies it into the game too. -->
+	<ItemGroup>
+		<None Include="..\PlainAndEasyInjector\Properties\BavarianTranslations.json" Link="BavarianTranslations.json"
+		      CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+	</ItemGroup>
+
+	<!-- PlainAndEasyInjector is only used as a library here: remove its own program files from the output, so nobody runs the wrong .exe -->
+	<Target Name="RemoveInjectorProgram" AfterTargets="CopyFilesToOutputDirectory">
+		<Delete Files="$(OutDir)PlainAndEasyInjector.exe;$(OutDir)PlainAndEasyInjector;$(OutDir)PlainAndEasyInjector.runtimeconfig.json;$(OutDir)PlainAndEasyInjector.deps.json" />
+	</Target>
+	<Target Name="RemoveInjectorProgramFromPublish" AfterTargets="Publish">
+		<Delete Files="$(PublishDir)PlainAndEasyInjector.exe;$(PublishDir)PlainAndEasyInjector;$(PublishDir)PlainAndEasyInjector.runtimeconfig.json;$(PublishDir)PlainAndEasyInjector.deps.json" />
+	</Target>
+
+	<!-- Forces MSBuild to copy 100% of Textures and Audio recursively right after publishing -->
+	<Target Name="CopyModAssetsAfterPublish" AfterTargets="Publish">
+		<ItemGroup>
+			<TextureFiles Include="Textures\**\*" />
+			<AudioFiles Include="Audio\**\*" />
+		</ItemGroup>
+		<Copy SourceFiles="@(TextureFiles)" DestinationFiles="@(TextureFiles->'$(PublishDir)Textures\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="false" />
+		<Copy SourceFiles="@(AudioFiles)" DestinationFiles="@(AudioFiles->'$(PublishDir)Audio\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="false" />
+	</Target>
+
+</Project>

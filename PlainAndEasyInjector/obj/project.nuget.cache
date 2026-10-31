@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "EMCzJ5D7+Uo=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\13131313\\source\\repos\\SJSMHDBavarianPatcher\\PlainAndEasyInjector\\PlainAndEasyInjector.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\13131313\\.nuget\\packages\\krafs.publicizer\\2.3.0\\krafs.publicizer.2.3.0.nupkg.sha512",
+    "C:\\Users\\13131313\\.nuget\\packages\\mono.cecil\\0.11.6\\mono.cecil.0.11.6.nupkg.sha512"
+  ],
+  "logs": []
+}
