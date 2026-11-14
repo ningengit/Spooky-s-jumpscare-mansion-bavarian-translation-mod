@@ -6,4 +6,5 @@ So i hob des ganze spui auf baarisch ibasetzt und musst ned skeptisch sein denn 
 
 # Where it is available for download
 https://gamebanana.com/mods/636783
+
 https://edekakatz.itch.io/sjsm-hd-bavarian-translation-mod
